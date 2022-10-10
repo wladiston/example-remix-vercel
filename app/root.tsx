@@ -1,4 +1,5 @@
 import type { MetaFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import {
   Links,
   LiveReload,
@@ -6,7 +7,17 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "@remix-run/react";
+import { withSentry } from "@sentry/remix";
+
+export async function loader() {
+  return json({
+    ENV: {
+      SENTRY_DSN: process.env.SENTRY_DSN,
+    },
+  });
+}
 
 export const meta: MetaFunction = () => ({
   charset: "utf-8",
@@ -14,7 +25,9 @@ export const meta: MetaFunction = () => ({
   viewport: "width=device-width,initial-scale=1",
 });
 
-export default function App() {
+function App() {
+  const { ENV } = useLoaderData<typeof loader>();
+
   return (
     <html lang="en">
       <head>
@@ -23,6 +36,11 @@ export default function App() {
       </head>
       <body>
         <Outlet />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.ENV = ${JSON.stringify(ENV)}`,
+          }}
+        />
         <ScrollRestoration />
         <Scripts />
         <LiveReload />
@@ -30,3 +48,18 @@ export default function App() {
     </html>
   );
 }
+
+export function ErrorBoundary({ error }: { error: Error }) {
+  return (
+    <div>
+      <h1>Root ErrorBoundary</h1>
+      <p>{error.message}</p>
+      <p>The stack trace is:</p>
+      <pre>{error.stack}</pre>
+    </div>
+  );
+}
+
+export default withSentry(App, {
+  wrapWithErrorBoundary: false,
+});
